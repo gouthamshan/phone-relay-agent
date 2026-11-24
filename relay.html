@@ -69,6 +69,10 @@ footer{text-align:center;color:var(--dim);font-size:11px;padding:8px 12px 26px}
     <h2>Demo call — French caller speaks</h2>
     <div class="sub"><div class="lang">Other party (French)</div><div class="txt fr" id="frSub">—</div></div>
     <div class="sub"><div class="lang">You (English)</div><div class="txt en" id="enSub">—</div></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="nextBtn" style="display:none">Next phrase</button>
+      <button class="btn ghost" id="stopDemo" style="display:none">✕ Stop demo</button>
+    </div>
   <div id="live" class="card hidden">
     <h2>Live mic relay <span class="hint">French caller → English subtitles · you EN → French voice</span></h2>
     <div class="sub"><div class="lang">Other party (FR)</div><div class="txt fr" id="liveFR">—</div></div>
@@ -102,9 +106,11 @@ async function enSub(text){
 
 async function startDemo(){
   $('demoBtn').disabled=true;
+  $('nextBtn').style.display='';
+  $('stopDemo').style.display='';
   const d=await fetch('/api/demo-fr').then(r=>r.json());
   const q=d.phrases||[];
-  for(let i=0;i<q.length;i++){
+  const step=async (i)=>{
     const p=q[i];
     $('frSub').textContent=p.fr;
     $('enSub').textContent='(translation next) — '+p.fr;
@@ -116,11 +122,13 @@ async function startDemo(){
     $('replyList').value='0';
     $('replyList').style.display='block';
     $('nextBtn').textContent=i===q.length-1?'Finish':'Next phrase';
+    $('nextBtn').style.background=i===q.length-1?'#26a69a':'#4f8cff';
     await sleep(600);
-    if(i<q.length-1) $('nextBtn').click();
-  }
-  $('stopDemo').style.display='';
-  $('demoBtn').disabled=false;
+    if(i<q.length-1) return;
+    $('stopDemo').style.display='none';
+    $('demoBtn').disabled=false;
+  };
+  for(let i=0;i<q.length;i++) await step(i);
 }
 
 async function replyFr(){
@@ -155,6 +163,7 @@ $('#micBtn').onclick=()=>{ $('intro').classList.add('hidden'); $('live').classLi
 $('#replyFRBtn').onclick=replyFr;
 $('#replyStop').onclick=()=>{ try{speechSynthesis.cancel();}catch(e){} };
 $('#stopDemo').onclick=()=>location.reload();
+$('#nextBtn').onclick=()=>location.reload();
 </script>
 </body>
 </html>
