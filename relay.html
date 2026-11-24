@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0e14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Language Relay Agent</title>
+<style>
+:root{
+  --bg:#0b0e14; --panel:#131722; --line:#232a3b; --txt:#d7dce6; --dim:#8b93a7;
+  --grn:#26a69a; --red:#ef5350; --acc:#4f8cff; --amber:#e6b450;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px 18px 240px}
+header.top{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+header.top h1{font-size:17px;letter-spacing:.5px;color:var(--acc)}
+header.top .pill{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--line);color:var(--dim)}
+header.top .pill.live{color:var(--grn);border-color:#1d4a39}
+main{display:flex;flex-direction:column;gap:14px;max-width:840px;margin-top:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h2{font-size:15px;margin:0 0 8px;color:var(--txt)}
+.card .hint{color:var(--dim);font-size:12px;margin-top:4px}
+.hidden{display:none}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn{background:var(--acc);color:#fff;border:0;border-radius:12px;padding:14px 18px;font:inherit;font-weight:700;cursor:pointer;min-height:52px}
+.btn.ghost{background:var(--panel);border:1px solid var(--line);color:var(--txt);min-height:52px}
+.btn.big{font-size:17px;max-width:100%}
+.chips{display:flex;gap:10px;flex-wrap:wrap}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:14px;cursor:pointer;min-height:52px}
+.chip b{color:var(--red)}
+.sub{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;background:#0f1320;border:1px solid var(--line);border-radius:10px}
+.sub .lang{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+.sub .txt{font-size:19px;font-weight:700;color:var(--txt);word-break:break-word}
+.sub .txt.en{color:var(--grn)} .sub .txt.fr{color:var(--red)}
+.err{color:var(--red);font-size:13px;padding:8px 0}
+footer{text-align:center;color:var(--dim);font-size:11px;padding:8px 12px 26px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Language Relay Agent</h1>
+  <span class="pill" id="statuspill">ready</span>
+  <span class="pill">You are using an AI translation agent</span>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Who is on the call</h2>
+    <div class="chips">
+      <div class="chip"><b>You</b> · <span class="hint">EN on your side</span></div>
+      <div class="chip"><b>Customer care</b> · <span class="hint">says French</span></div>
+      <div class="chip"><b>Relay agent</b> · <span class="hint">this phone/computer</span></div>
+    </div>
+  </div>
+
+  <div id="intro" class="card">
+    <h2>How it works</h2>
+    <p>1. Customer care dials in. &nbsp;2. This app plays their <b>French</b> aloud and shows <b>English subtitles</b>.</p>
+    <p>3. You reply <b>in English</b> (pick from quick lines or type). &nbsp;4. The app <b>speaks your reply in French</b> and says it is a translation agent.</p>
+    <div class="row">
+      <button class="btn" id="demoBtn">▶ Demo — French caller speaks (simulated)</button>
+      <button class="btn ghost" id="micBtn">🎤 Live mic — FR → EN subtitles · you EN → FR voice</button>
+    </div>
+  </div>
+
+  <div id="demo" class="card hidden">
+    <h2>Demo call — French caller speaks</h2>
+    <div class="sub"><div class="lang">Other party (French)</div><div class="txt fr" id="frSub">—</div></div>
+    <div class="sub"><div class="lang">You (English)</div><div class="txt en" id="enSub">—</div></div>
+  <div id="live" class="card hidden">
+    <h2>Live mic relay <span class="hint">French caller → English subtitles · you EN → French voice</span></h2>
+    <div class="sub"><div class="lang">Other party (FR)</div><div class="txt fr" id="liveFR">—</div></div>
+    <div class="sub"><div class="lang">You (EN)</div><div class="txt en" id="liveEN">—</div></div>
+    <div class="row"><button class="btn" id="micStart">🎤 Start live mic</button></div>
+    <div class="err" id="micErr"></div>
+  </div>
+</main>
+
+<footer>You are using an AI translation agent. Local only — nothing is recorded. Language: en + fr. Not financial/legal advice.</footer>
+
+<script>
+const $=s=>document.getElementById(s);
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function playFr(text){
+  try{
+    const u=new SpeechSynthesisUtterance(text);
+    const v=(speechSynthesis.getVoices()||[]).filter(x=>x.lang&&x.lang.startsWith('fr')).sort((a,b)=>b.lang.localeCompare(a.lang))[0]||null;
+    u.voice=v||null; u.lang=v?v.lang:'fr-FR'; u.rate=1; u.pitch=1;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){ alert('TTS not available in this browser (needs Chrome/Edge/Safari + a French voice).'); }
+}
+
+async function enSub(text){
+  const r=await fetch('/api/translate?text='+encodeURIComponent(text)+'&from=en&to=fr');
+  const j=await r.json();
+  return j.translation||'…';
+}
+
+async function startDemo(){
+  $('demoBtn').disabled=true;
+  const d=await fetch('/api/demo-fr').then(r=>r.json());
+  const q=d.phrases||[];
+  for(let i=0;i<q.length;i++){
+    const p=q[i];
+    $('frSub').textContent=p.fr;
+    $('enSub').textContent='(translation next) — '+p.fr;
+    playFr(p.fr);
+    await sleep(3400);
+    const t=await enSub(p.fr);
+    $('enSub').textContent=t+'   <span class="hint">['+p.fr+']</span>';
+    $('replyList').innerHTML=q.map((x,k)=>`<option value="${k}">${x.fr} — ${x.en}</option>`).join('');
+    $('replyList').value='0';
+    $('replyList').style.display='block';
+    $('nextBtn').textContent=i===q.length-1?'Finish':'Next phrase';
+    await sleep(600);
+    if(i<q.length-1) $('nextBtn').click();
+  }
+  $('stopDemo').style.display='';
+  $('demoBtn').disabled=false;
+}
+
+async function replyFr(){
+  const text=$('replyText').value.trim()||$('replyList').options[$('replyList').selectedIndex].text;
+  if(!text){ alert('Type or pick a reply first.'); return; }
+  const t=await enSub(text);
+  $('enSub').textContent=text;
+  $('frSub').textContent=t;
+  playFr(t);
+}
+
+function liveStart(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ $('micErr').textContent='Browser STT not supported here (Chrome/Edge on PC). Use Demo mode on iPhone Safari.'; return; }
+  const r=new SR(); r.lang='fr-FR'; r.interimResults=false; r.maxAlternatives=1;
+  $('micStart').textContent='⚫ Listening…';
+  r.onresult=function(e){
+    const t=e.results[0][0].transcript;
+    $('liveFR').textContent=t;
+    enSub(t).then(ev=>{ $('liveEN').textContent=ev; });
+  };
+  r.onerror=function(e){ $('micErr').textContent='STT error: '+e.error; $('micStart').textContent='🎤 Start live mic'; };
+  r.onend=function(){ if(liveR===r) setTimeout(()=>r.start(),800); };
+  try{ r.start(); }catch(e){ $('micErr').textContent='Could not start mic: '+e.message; }
+}
+
+$('#demoBtn').onclick=async()=>{
+  $('intro').classList.add('hidden'); $('demo').classList.remove('hidden');
+  await startDemo();
+};
+$('#micBtn').onclick=()=>{ $('intro').classList.add('hidden'); $('live').classList.remove('hidden'); };
+$('#replyFRBtn').onclick=replyFr;
+$('#replyStop').onclick=()=>{ try{speechSynthesis.cancel();}catch(e){} };
+$('#stopDemo').onclick=()=>location.reload();
+</script>
+</body>
+</html>
